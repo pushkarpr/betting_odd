@@ -1,0 +1,784 @@
+!pip install chart-studio
+  !pip install colorama
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from colorama import Fore
+import chart_studio.plotly as py
+import plotly.graph_objs as go
+import chart_studio
+%matplotlib inline
+import missingno as msno
+import seaborn as sns
+# Creating a function to print dataframe properties.
+def prop(df, mode):
+    """
+    Prints data about a selected dataframe depending on the selected mode/s.
+    
+    Args:
+        (str) df - The dataframe variable name to be investigated.
+        (int) mode - Select from 1 to 5, using a list for more than one value, to print required info about the dataframe.
+                    [1: DATAFRAME HEAD, 2: DATAFRAME INFO, 3: COUNT OF UNIQUE VALUES, 4: COUNT OF DUPLICATED ROWS,_
+                      5: COUNT OF DUPLICATED VALUES PER COLUMN]
+    """
+    if 1 in mode:
+        print(Fore.BLUE + 'DATAFRAME HEAD' + Fore.RESET)    
+        print(df.head(3))
+    if 2 in mode:
+        print(Fore.BLUE + 'DATAFRAME INFO' + Fore.RESET)
+        print(df.info())
+    if 3 in mode:
+        print(Fore.BLUE + 'COUNT OF UNIQUE VALUES' + Fore.RESET)
+        print(df.nunique())
+    if 4 in mode:
+        print(Fore.BLUE + 'COUNT OF DUPLICATED ROWS' + Fore.RESET)
+        print(df.duplicated().sum())
+    if 5 in mode:
+        print(Fore.BLUE + 'COUNT OF DUPLICATED VALUES PER COLUMN' + Fore.RESET)
+        for column in list(df.columns):
+            dup_values = df[column].duplicated().sum()
+            if dup_values != 0:
+                print('{}: {}'.format(column, dup_values))
+        if dup_values.sum() == 0:
+            print('All values are unique.')
+  # Creating a function to investigate team ID's.
+def id_check(df, col1, col2, df_check, col_check):
+    """
+    Checks whether the multiple id's for a single team from df are also available in df_check.
+    
+    Args:
+        (str) df - The dataframe variable name to be investigated.
+        (str) col1 - The column of df where long team names are stored.
+        (str) Col2 - The column of df where team id's are stored.
+        (str) df_check - The dataframe variable name to be checked against df.
+        (str) col_check - The column of df_check where team id's are stored.
+        
+    """
+    n = 0
+    for id in df[df[col1].duplicated(keep=False)][col2].values:
+        n += 1
+        if id in df_check[col_check].values:
+            print('{}. {} available.'.format(n ,id))
+        else:
+            print('{}. {} not available'.format(n, id))
+  # Loading data from .csv files.
+df_league = pd.read_csv('/content/drive/My Drive/ca683/group project/csv_files/League.csv')
+df_team = pd.read_csv('/content/drive/My Drive/ca683/group project/csv_files/Team.csv')
+df_team_attr = pd.read_csv('/content/drive/My Drive/ca683/group project/csv_files/Team_Attributes.csv')
+df_match = pd.read_csv('/content/drive/My Drive/ca683/group project/csv_files/Match.csv')
+df_player = pd.read_csv('/content/drive/My Drive/ca683/group project/csv_files/Player.csv')
+df_player_attr = pd.read_csv('/content/drive/My Drive/ca683/group project/csv_files/Player_Attributes.csv')
+df_team = pd.read_csv('/content/drive/My Drive/ca683/group project/csv_files/Team.csv')
+# Investigating dataframe df_league.
+prop(df_league, [1, 2, 3, 4, 5])
+# Investigating dataframe df_team.
+prop(df_team, [1, 2, 3, 4, 5])
+# Investigating dataframe df_team_attr.
+prop(df_team_attr, [1, 2, 3, 4, 5])
+# Checking columns without NaN values in df_match.
+col_nonan = [x for x in df_match.columns if df_match[x].isnull().any() == False]
+print(col_nonan)
+# Checking the case of the 2 different ID's per team spotted previously for home_team_api_id column in case of df_match.
+id_check(df_team, 'team_long_name', 'team_api_id', df_match, 'home_team_api_id')
+# Checking the case of the 2 different ID's per team spotted previously for away_team_api_id column in case of df_match.
+id_check(df_team, 'team_long_name', 'team_api_id', df_match, 'away_team_api_id')
+#creating df_bet_odds: a dataframe with all betting odds matchid wise. 
+# select only match id and betting odds columns
+df_bet_odds = df_match[['match_api_id',
+                        'B365H', 'B365D', 'B365A',
+                        'BWH', 'BWD', 'BWA',
+                        'IWH', 'IWD', 'IWA',
+                        'LBH', 'LBD', 'LBA',
+                        'PSH', 'PSD', 'PSA',
+                        'WHH', 'WHD', 'WHA',
+                        'SJH', 'SJD', 'SJA',
+                        'VCH', 'VCD', 'VCA',
+                        'GBH', 'GBD', 'GBA',
+                        'BSH', 'BSD', 'BSA']]
+df_bet_odds.head(2)
+#drop completely missing rows.
+df_bet_odds.dropna(how='all', subset=['B365H', 'B365D', 'B365A',
+                                      'BWH', 'BWD', 'BWA',
+                                      'IWH', 'IWD', 'IWA',
+                                      'LBH', 'LBD', 'LBA',
+                                      'PSH', 'PSD', 'PSA',
+                                      'WHH', 'WHD', 'WHA',
+                                      'SJH', 'SJD', 'SJA',
+                                      'VCH', 'VCD', 'VCA',
+                                      'GBH', 'GBD', 'GBA',
+                                      'BSH', 'BSD', 'BSA'], inplace=True)
+#just a copy of betting odds
+df_bet_odds_copy = df_match[['match_api_id',
+                        'B365H', 'B365D', 'B365A',
+                        'BWH', 'BWD', 'BWA',
+                        'IWH', 'IWD', 'IWA',
+                        'LBH', 'LBD', 'LBA',
+                        'PSH', 'PSD', 'PSA',
+                        'WHH', 'WHD', 'WHA',
+                        'SJH', 'SJD', 'SJA',
+                        'VCH', 'VCD', 'VCA',
+                        'GBH', 'GBD', 'GBA',
+                        'BSH', 'BSD', 'BSA']]
+df_match_s = df_match.groupby('season')
+#check for outliers in df_bet_odds
+# Select columns with numerical data
+num_cols = df_bet_odds.select_dtypes(include='number').columns.tolist()
+
+# Loop through each numerical column and plot boxplot
+for col in num_cols:
+    plt.figure(figsize=(8, 5))
+    sns.boxplot(x=df_bet_odds[col])
+    plt.title(f'Boxplot for {col}')
+    plt.show()
+#check % of missning values per column in df_bet_odds
+
+total_rows = len(df_bet_odds)
+print("Total Rows:", total_rows)
+
+missing_percentages = df_bet_odds.isnull().sum() * 100 / total_rows
+print("\nPercentage of Missing Values:")
+print(missing_percentages)
+#Drop columns with more than 20% of the missing values from df_bet_odds
+# Calculate the percentage of missing values for each column
+missing_percentages = df_bet_odds.isnull().sum() / len(df_bet_odds) * 100
+
+# Get a list of column names with over 20% missing values
+columns_to_drop = missing_percentages[missing_percentages > 20].index.tolist()
+
+# Drop the columns from the dataframe
+df_bet_odds.drop(columns_to_drop, axis=1, inplace=True)
+#drop any row with missing value from df_bet_odds
+
+df_bet_odds = df_bet_odds.dropna(axis=0)
+# Group the dataframe by match_api_id and calculate median for each bookmaker's odds for home team win, draw, and away team win
+median_df = df_bet_odds.groupby('match_api_id').median()[['B365H', 'B365D', 'B365A', 'BWH', 'BWD', 'BWA', 'IWH', 'IWD', 'IWA', 'LBH', 'LBD', 'LBA', 'WHH', 'WHD', 'WHA', 'VCH', 'VCD', 'VCA']]
+
+# Calculate the median for home team win, draw, and away team win across all bookmakers for each match_api_id
+median_df['median_home_win'] = median_df[['B365H', 'BWH', 'IWH', 'LBH', 'WHH', 'VCH']].median(axis=1)
+median_df['median_draw'] = median_df[['B365D', 'BWD', 'IWD', 'LBD', 'WHD', 'VCD']].median(axis=1)
+median_df['median_away_win'] = median_df[['B365A', 'BWA', 'IWA', 'LBA', 'WHA', 'VCA']].median(axis=1)
+
+# Merge the median dataframe with the original dataframe on match_api_id
+df_bet_odds = pd.merge(df_bet_odds, median_df[['median_home_win', 'median_draw', 'median_away_win']], on='match_api_id')
+# Select the required columns from df_bet_odds
+df_bet_M = df_bet_odds[['match_api_id', 'median_home_win', 'median_away_win', 'median_draw']].copy()
+
+# Rename the columns
+df_bet_M.columns = ['match_api_id', 'home_win_m', 'away_win_m', 'draw__m']
+#Save df_bet_M to csv - single Y variable values 
+df_bet_M.to_csv('/content/drive/My Drive/ca683/group project/csv_files/df_bet_M.csv', index=False)
+#Create df_season_goals for total goals scored and concede by both teams (matchwise)
+# create a function to get previous season based on current date
+def get_prev_season(date):
+    if date.month >= 8:
+        return str(date.year) + '/' + str(date.year + 1)[-2:]
+    else:
+        return str(date.year - 1) + '/' + str(date.year)[-2:]
+
+# create a new column for previous season in match table
+df_match['prev_season'] = df_match['date'].apply(lambda x: get_prev_season(pd.to_datetime(x)))
+
+# group match table by home team id and previous season to get total goals scored and conceded
+df_goals_home = df_match.groupby(['home_team_api_id', 'prev_season'])['home_team_goal'].sum().reset_index()
+df_goals_away = df_match.groupby(['away_team_api_id', 'prev_season'])['away_team_goal'].sum().reset_index()
+df_conceded_home = df_match.groupby(['home_team_api_id', 'prev_season'])['away_team_goal'].sum().reset_index()
+df_conceded_away = df_match.groupby(['away_team_api_id', 'prev_season'])['home_team_goal'].sum().reset_index()
+
+# rename columns for easier merge
+df_goals_home = df_goals_home.rename(columns={'home_team_api_id': 'team_api_id', 'home_team_goal': 'prev_goals_scored_home'})
+df_goals_away = df_goals_away.rename(columns={'away_team_api_id': 'team_api_id', 'away_team_goal': 'prev_goals_scored_away'})
+df_conceded_home = df_conceded_home.rename(columns={'home_team_api_id': 'team_api_id', 'away_team_goal': 'prev_goals_conceded_home'})
+df_conceded_away = df_conceded_away.rename(columns={'away_team_api_id': 'team_api_id', 'home_team_goal': 'prev_goals_conceded_away'})
+
+# merge total goals scored and conceded for home and away teams with match table
+df_season_goals = pd.merge(df_match[['match_api_id', 'date', 'season', 'home_team_api_id', 'away_team_api_id', 'prev_season']], 
+                           df_goals_home[['team_api_id', 'prev_season', 'prev_goals_scored_home']], 
+                           left_on=['home_team_api_id', 'prev_season'], 
+                           right_on=['team_api_id', 'prev_season'], 
+                           how='left')
+df_season_goals = pd.merge(df_season_goals, 
+                           df_goals_away[['team_api_id', 'prev_season', 'prev_goals_scored_away']], 
+                           left_on=['away_team_api_id', 'prev_season'], 
+                           right_on=['team_api_id', 'prev_season'], 
+                           how='left')
+df_season_goals = pd.merge(df_season_goals, 
+                           df_conceded_home[['team_api_id', 'prev_season', 'prev_goals_conceded_home']], 
+                           left_on=['home_team_api_id', 'prev_season'], 
+                           right_on=['team_api_id', 'prev_season'], 
+                           how='left')
+df_season_goals = pd.merge(df_season_goals, 
+                           df_conceded_away[['team_api_id', 'prev_season', 'prev_goals_conceded_away']], 
+                           left_on=['away_team_api_id', 'prev_season'], 
+                           right_on=['team_api_id', 'prev_season'], 
+                           how='left')
+
+# drop team_api_id columns
+df_season_goals.head()
+# Investigating dataframe df_match.
+prop(df_season_goals, [1, 2, 3, 4, 5])
+#Drop unecessary columns
+df_season_goals = df_season_goals.drop(['team_api_id_x', 'team_api_id_y'], axis=1)
+#Save df_season_goal to csv
+df_season_goals.to_csv('/content/drive/My Drive/ca683/group project/csv_files/df_season_goals.csv', index=False)
+#Create df_season_wins for total win by both teams (matchwise) for last season
+
+# create a function to get previous season based on current date
+def get_prev_season(date):
+    if date.month >= 8:
+        return str(date.year) + '/' + str(date.year + 1)[-2:]
+    else:
+        return str(date.year - 1) + '/' + str(date.year)[-2:]
+
+# create a new column for previous season in match table
+df_match['prev_season'] = df_match['date'].apply(lambda x: get_prev_season(pd.to_datetime(x)))
+
+# group match table by home team id and previous season to get total wins
+df_home_wins = df_match.query('home_team_goal > away_team_goal').groupby(['home_team_api_id', 'prev_season']).size().reset_index(name='home_team_wins')
+df_away_wins = df_match.query('away_team_goal > home_team_goal').groupby(['away_team_api_id', 'prev_season']).size().reset_index(name='away_team_wins')
+
+# merge total wins for home and away teams with match table
+df_season_wins = pd.merge(df_match[['match_api_id', 'date', 'season', 'home_team_api_id', 'away_team_api_id', 'prev_season']], 
+                          df_home_wins, 
+                          left_on=['home_team_api_id', 'prev_season'], 
+                          right_on=['home_team_api_id', 'prev_season'], 
+                          how='left')
+df_season_wins = pd.merge(df_season_wins, 
+                          df_away_wins, 
+                          left_on=['away_team_api_id', 'prev_season'], 
+                          right_on=['away_team_api_id', 'prev_season'], 
+                          how='left')
+
+# replace NaN values with 0
+df_season_wins[['home_team_wins', 'away_team_wins']] = df_season_wins[['home_team_wins', 'away_team_wins']].fillna(0)
+
+# convert columns to integer type
+df_season_wins[['home_team_wins', 'away_team_wins']] = df_season_wins[['home_team_wins', 'away_team_wins']].astype(int)
+
+#Create df_season_losses for total win by both teams (matchwise) for last season
+
+# create a function to get previous season based on current date
+def get_prev_season(date):
+    if date.month >= 8:
+        return str(date.year) + '/' + str(date.year + 1)[-2:]
+    else:
+        return str(date.year - 1) + '/' + str(date.year)[-2:]
+
+# create a new column for previous season in match table
+df_match['prev_season'] = df_match['date'].apply(lambda x: get_prev_season(pd.to_datetime(x)))
+
+# group match table by home team id and previous season to get total losses
+df_home_losses = df_match.query('home_team_goal < away_team_goal').groupby(['home_team_api_id', 'prev_season']).size().reset_index(name='home_team_losses')
+df_away_losses = df_match.query('away_team_goal < home_team_goal').groupby(['away_team_api_id', 'prev_season']).size().reset_index(name='away_team_losses')
+
+# merge total losses for home and away teams with match table
+df_season_losses = pd.merge(df_match[['match_api_id', 'date', 'season', 'home_team_api_id', 'away_team_api_id', 'prev_season']], 
+                            df_home_losses, 
+                            left_on=['home_team_api_id', 'prev_season'], 
+                            right_on=['home_team_api_id', 'prev_season'], 
+                            how='left')
+df_season_losses = pd.merge(df_season_losses, 
+                            df_away_losses, 
+                            left_on=['away_team_api_id', 'prev_season'], 
+                            right_on=['away_team_api_id', 'prev_season'], 
+                            how='left')
+
+# replace NaN values with 0
+df_season_losses[['home_team_losses', 'away_team_losses']] = df_season_losses[['home_team_losses', 'away_team_losses']].fillna(0)
+
+# convert columns to integer type
+df_season_losses[['home_team_losses', 'away_team_losses']] = df_season_losses[['home_team_losses', 'away_team_losses']].astype(int)
+#Create df_season_draws for total win by both teams (matchwise) for last season
+
+# create a function to get previous season based on current date
+def get_prev_season(date):
+    if date.month >= 8:
+        return str(date.year) + '/' + str(date.year + 1)[-2:]
+    else:
+        return str(date.year - 1) + '/' + str(date.year)[-2:]
+
+# create a new column for previous season in match table
+df_match['prev_season'] = df_match['date'].apply(lambda x: get_prev_season(pd.to_datetime(x)))
+
+# group match table by home team id and previous season to get total draws
+df_home_draws = df_match.query('home_team_goal == away_team_goal').groupby(['home_team_api_id', 'prev_season']).size().reset_index(name='home_team_draws')
+df_away_draws = df_match.query('away_team_goal == home_team_goal').groupby(['away_team_api_id', 'prev_season']).size().reset_index(name='away_team_draws')
+
+# merge total draws for home and away teams with match table
+df_season_draws = pd.merge(df_match[['match_api_id', 'date', 'season', 'home_team_api_id', 'away_team_api_id', 'prev_season']], 
+                          df_home_draws, 
+                          left_on=['home_team_api_id', 'prev_season'], 
+                          right_on=['home_team_api_id', 'prev_season'], 
+                          how='left')
+df_season_draws = pd.merge(df_season_draws, 
+                          df_away_draws, 
+                          left_on=['away_team_api_id', 'prev_season'], 
+                          right_on=['away_team_api_id', 'prev_season'], 
+                          how='left')
+
+# replace NaN values with 0
+df_season_draws[['home_team_draws', 'away_team_draws']] = df_season_draws[['home_team_draws', 'away_team_draws']].fillna(0)
+
+# convert columns to integer type
+df_season_draws[['home_team_draws', 'away_team_draws']] = df_season_draws[['home_team_draws', 'away_team_draws']].astype(int)
+
+#create a new dataframe df_perv_season for merged data for the previous season (match_api_id wise)
+
+# Merge the dataframes based on match_api_id
+df_perv_season = pd.merge(df_season_wins[['match_api_id', 'home_team_api_id', 'away_team_api_id', 'home_team_wins', 'away_team_wins']], 
+                          df_season_losses[['match_api_id', 'home_team_api_id', 'away_team_api_id', 'home_team_losses', 'away_team_losses']], 
+                          on=['match_api_id', 'home_team_api_id', 'away_team_api_id'], 
+                          how='left')
+
+df_perv_season = pd.merge(df_perv_season, 
+                          df_season_draws[['match_api_id', 'home_team_api_id', 'away_team_api_id', 'home_team_draws', 'away_team_draws']], 
+                          on=['match_api_id', 'home_team_api_id', 'away_team_api_id'], 
+                          how='left')
+
+# Rename columns
+df_perv_season = df_perv_season.rename(columns={
+    'home_team_wins': 'Home_team_wins',
+    'away_team_wins': 'Away_team_wins',
+    'home_team_losses': 'Home_team_losses',
+    'away_team_losses': 'Away_team_losses',
+    'home_team_draws': 'Home_team_draws',
+    'away_team_draws': 'Away_team_draws'
+})
+
+
+
+#create df_season with all features engineered
+#merge df_season_goals with df_perv_season
+df_perv_season = pd.merge(df_perv_season, 
+                          df_season_goals[['match_api_id', 'prev_goals_scored_home', 'prev_goals_conceded_home', 'prev_goals_scored_away', 'prev_goals_conceded_away']], 
+                          on=['match_api_id'], 
+                          how='left')
+df_perv_season = pd.merge(df_perv_season, df_match[['match_api_id', 'season']], on='match_api_id', how='left')
+df_perv_season = df_perv_season.rename(columns={'season': 'match_season'})
+#save df_perv_season to csv
+#Save df_season to csv
+df_perv_season.to_csv('/content/drive/My Drive/ca683/group project/csv_files/df_perv_season.csv', index=False)
+df_team_attr=pd.read_csv('/content/drive/My Drive/ca683/group project/csv_files/Team_Attributes.csv')
+df_match=pd.read_csv('/content/drive/My Drive/ca683/group project/csv_files/Match.csv')
+df_perv_season=pd.read_csv('/content/drive/My Drive/ca683/group project/csv_files/df_perv_season.csv')
+df_final=pd.read_csv('/content/drive/My Drive/ca683/group project/csv_files/df_final.csv')
+# Define list of selected columns
+selected_columns = ['match_api_id', 'date', 'home_team_api_id', 'away_team_api_id', 'season']
+
+# Create new dataframe with selected columns
+df_tmp_match = df_match[selected_columns].copy()
+df_tmp_team_attr = df_team_attr.copy()
+#populating season column in df_tmp_team_attr
+# Assuming that df_tmp_team_attr already has a 'date' column with datetime objects
+df_tmp_team_attr['date'] = pd.to_datetime(df_tmp_team_attr['date'])
+df_tmp_team_attr['season'] = df_tmp_team_attr['date'].apply(lambda x: str(x.year-1) + '/' + str(x.year) if (x.month >= 8) or (x.month <= 2) else str(x.year) + '/' + str(x.year+1))
+#add team_attributes to df_tmp_match for home team
+
+# create empty columns
+df_tmp_match['home_team_chanceCreationPassing'] = ""
+df_tmp_match['home_team_chanceCreationCrossing'] = ""
+df_tmp_match['home_team_chanceCreationShooting'] = ""
+df_tmp_match['home_team_defencePressure'] = ""
+df_tmp_match['home_team_defenceAggression'] = ""
+
+# iterate over every row in df_tmp_match
+for index, row in df_tmp_match.iterrows():
+    home_team_api_id = row['home_team_api_id']
+    match_season = row['season']
+    
+    # filter df_tmp_team_attr to only include records for the home team and the same season as the match
+    team_attr = df_tmp_team_attr[(df_tmp_team_attr['team_api_id'] == home_team_api_id) & (df_tmp_team_attr['season'] == match_season)]
+    
+    # check if there is at least one record in df_tmp_team_attr that matches the home team and season
+    if not team_attr.empty:
+        # pick the first record since there should only be one match for the same team and season
+        attributes = team_attr.iloc[0]
+        
+        # populate the new columns with the corresponding attribute values
+        df_tmp_match.at[index, 'home_team_chanceCreationPassing'] = attributes['chanceCreationPassing']
+        df_tmp_match.at[index, 'home_team_chanceCreationCrossing'] = attributes['chanceCreationCrossing']
+        df_tmp_match.at[index, 'home_team_chanceCreationShooting'] = attributes['chanceCreationShooting']
+        df_tmp_match.at[index, 'home_team_defencePressure'] = attributes['defencePressure']
+        df_tmp_match.at[index, 'home_team_defenceAggression'] = attributes['defenceAggression']
+#add team_attributes to df_tmp_match for away team
+
+# create empty columns
+df_tmp_match['away_team_chanceCreationPassing'] = ""
+df_tmp_match['away_team_chanceCreationCrossing'] = ""
+df_tmp_match['away_team_chanceCreationShooting'] = ""
+df_tmp_match['away_team_defencePressure'] = ""
+df_tmp_match['away_team_defenceAggression'] = ""
+
+# iterate over every row in df_tmp_match
+for index, row in df_tmp_match.iterrows():
+    away_team_api_id = row['away_team_api_id']
+    match_season = row['season']
+    
+    # filter df_tmp_team_attr to only include records for the away team and the same season as the match
+    team_attr = df_tmp_team_attr[(df_tmp_team_attr['team_api_id'] == away_team_api_id) & (df_tmp_team_attr['season'] == match_season)]
+    
+    # check if there is at least one record in df_tmp_team_attr that matches the away team and season
+    if not team_attr.empty:
+        # pick the first record since there should only be one match for the same team and season
+        attributes = team_attr.iloc[0]
+        
+        # populate the new columns with the corresponding attribute values
+        df_tmp_match.at[index, 'away_team_chanceCreationPassing'] = attributes['chanceCreationPassing']
+        df_tmp_match.at[index, 'away_team_chanceCreationCrossing'] = attributes['chanceCreationCrossing']
+        df_tmp_match.at[index, 'away_team_chanceCreationShooting'] = attributes['chanceCreationShooting']
+        df_tmp_match.at[index, 'away_team_defencePressure'] = attributes['defencePressure']
+        df_tmp_match.at[index, 'away_team_defenceAggression'] = attributes['defenceAggression']
+
+#add rest of the feature to the df_tmp_match
+# create empty columns
+df_tmp_match['Home_team_wins'] = ""
+df_tmp_match['Away_team_wins'] = ""
+df_tmp_match['Home_team_losses'] = ""
+df_tmp_match['Away_team_losses'] = ""
+df_tmp_match['Home_team_draws'] = ""
+df_tmp_match['Away_team_draws'] = ""
+df_tmp_match['prev_goals_scored_home'] = ""
+df_tmp_match['prev_goals_conceded_home'] = ""
+df_tmp_match['prev_goals_scored_away'] = ""
+df_tmp_match['prev_goals_conceded_away'] = ""
+
+
+# iterate over every row in df_tmp_match
+for index, row in df_tmp_match.iterrows():
+    match_api_id = row['match_api_id']
+    
+    # filter df_perv_season to only include records for the same match_api_id as in df_tmp_match
+    perv_season = df_perv_season[df_perv_season['match_api_id'] == match_api_id]
+    
+    # check if there is at least one record in df_perv_season that matches the match_api_id
+    if not perv_season.empty:
+        # pick the first record since there should only be one match for the same match_api_id
+        perv_season_match = perv_season.iloc[0]
+        
+        # populate the new columns with the corresponding values from df_perv_season
+        df_tmp_match.at[index, 'Home_team_wins'] = perv_season_match['Home_team_wins']
+        df_tmp_match.at[index, 'Away_team_wins'] = perv_season_match['Away_team_wins']
+        df_tmp_match.at[index, 'Home_team_losses'] = perv_season_match['Home_team_losses']
+        df_tmp_match.at[index, 'Away_team_losses'] = perv_season_match['Away_team_losses']
+        df_tmp_match.at[index, 'Home_team_draws'] = perv_season_match['Home_team_draws']
+        df_tmp_match.at[index, 'Away_team_draws'] = perv_season_match['Away_team_draws']
+        df_tmp_match.at[index, 'prev_goals_scored_home'] = perv_season_match['prev_goals_scored_home']
+        df_tmp_match.at[index, 'prev_goals_conceded_home'] = perv_season_match['prev_goals_conceded_home']
+        df_tmp_match.at[index, 'prev_goals_scored_away'] = perv_season_match['prev_goals_scored_away']
+        df_tmp_match.at[index, 'prev_goals_conceded_away'] = perv_season_match['prev_goals_conceded_away']
+# merge the two dataframes on match_api_id to have final version of df_final
+df_final = pd.merge(df_final, df_bet_M, on='match_api_id', how='left')
+ #Cleaning df_final (1st - drop rows with null Y variable)
+
+df_final.dropna(subset=['home_win_m', 'away_win_m', 'draw__m'], inplace=True)
+
+#drop date and match_season columns from df_final
+df_final = df_final.drop(['date'], axis=1)
+#populate winning team column to identify wining ground
+
+df_match['winning_ground'] = df_match.apply(lambda row: 
+                                            "home" if row['home_team_goal'] > row['away_team_goal']
+                                            else "away" if row['away_team_goal'] > row['home_team_goal']
+                                            else "draw", axis=1)
+df_winning_ground = df_match.loc[:, ['match_api_id', 'winning_ground']]
+# merge df_final and df_winning_ground based on match_api_id column
+merged_df = df_final.merge(df_winning_ground[['match_api_id', 'winning_ground']], on='match_api_id', how='left')
+
+# create a new column winning_ground in df_final and assign values from merged dataframe
+df_final['winning_ground'] = merged_df['winning_ground']
+#starting vlaue imputation in df_final
+# imputing for home team first
+#sorting as per home_team_api_id
+df_final = df_final.sort_values(by='home_team_api_id')
+
+#Applying KNN to imput values for missing team attribute in df_final for home team only
+# import libraries
+from sklearn.impute import KNNImputer
+
+# select columns to impute missing values
+cols_to_impute = ['home_team_chanceCreationPassing', 'home_team_chanceCreationCrossing',
+                  'home_team_chanceCreationShooting', 'home_team_defencePressure',
+                  'home_team_defenceAggression']
+
+# create a KNN imputer object with k=5 (can be adjusted as needed)
+imputer = KNNImputer(n_neighbors=5)
+
+# fit and transform the imputer on the selected columns of the dataframe
+df_final[cols_to_impute] = imputer.fit_transform(df_final[cols_to_impute])
+
+# imputing for away team now
+#sorting as per away_team_api_id
+df_final = df_final.sort_values(by='away_team_api_id')
+#Applying KNN to imput values for missing team attribute in df_final for away team only
+
+# select columns to impute missing values
+cols_to_impute = ['away_team_chanceCreationPassing',
+                  'away_team_chanceCreationCrossing', 'away_team_chanceCreationShooting',
+                  'away_team_defencePressure', 'away_team_defenceAggression']
+
+# create a KNN imputer object with k=5 (can be adjusted as needed)
+imputer = KNNImputer(n_neighbors=5)
+
+# fit and transform the imputer on the selected columns of the dataframe
+df_final[cols_to_impute] = imputer.fit_transform(df_final[cols_to_impute])
+for col in df_final.columns:
+    print(col, df_final[col].dtype)
+#populate match_year colulmn in df_final
+
+# merge the two dataframes based on match_api_id
+merged_df = pd.merge(df_final, df_year[['match_api_id', 'year']], on='match_api_id', how='left')
+
+# create a new column match_year and copy values from year column
+merged_df['match_year'] = merged_df['year']
+
+# drop the year column if not needed anymore
+merged_df = merged_df.drop('year', axis=1)
+#re-ordered temp merged_df to required order.
+merged_df = merged_df[['match_api_id', 'home_team_api_id', 'away_team_api_id', 'match_year', 'home_team_chanceCreationPassing', 'home_team_chanceCreationCrossing', 'home_team_chanceCreationShooting', 'home_team_defencePressure', 'home_team_defenceAggression', 'away_team_chanceCreationPassing', 'away_team_chanceCreationCrossing', 'away_team_chanceCreationShooting', 'away_team_defencePressure', 'away_team_defenceAggression', 'Home_team_wins', 'Away_team_wins', 'Home_team_losses', 'Away_team_losses', 'Home_team_draws', 'Away_team_draws', 'prev_goals_scored_home', 'prev_goals_conceded_home', 'prev_goals_scored_away', 'prev_goals_conceded_away', 'winning_ground', 'home_win_m', 'away_win_m', 'draw__m']]
+#Count of duplicate rows in DataFrame (df_final)
+duplicate_count = df_final.duplicated().sum()
+
+print("Number of duplicate rows:", duplicate_count)
+#apply one hot encoding on winnig_ground
+
+# Convert 'winning_ground' column into numerical values using one-hot encoding
+df_final = pd.get_dummies(df_final, columns=['winning_ground'])
+#re-ordered temp df_final to required order.
+df_final = df_final[['match_api_id', 'home_team_api_id', 'away_team_api_id', 'match_year', 'home_team_chanceCreationPassing', 'home_team_chanceCreationCrossing', 'home_team_chanceCreationShooting', 'home_team_defencePressure', 'home_team_defenceAggression', 'away_team_chanceCreationPassing', 'away_team_chanceCreationCrossing', 'away_team_chanceCreationShooting', 'away_team_defencePressure', 'away_team_defenceAggression', 'Home_team_wins', 'Away_team_wins', 'Home_team_losses', 'Away_team_losses', 'Home_team_draws', 'Away_team_draws', 'prev_goals_scored_home', 'prev_goals_conceded_home', 'prev_goals_scored_away', 'prev_goals_conceded_away', 'winning_ground_away', 'winning_ground_home', 'winning_ground_draw', 'home_win_m', 'away_win_m', 'draw__m']]
+df_final_x = df_final.loc[:, ['match_year', 'home_team_chanceCreationPassing', 'home_team_chanceCreationCrossing', 
+                                'home_team_chanceCreationShooting', 'home_team_defencePressure', 'home_team_defenceAggression', 
+                                'away_team_chanceCreationPassing', 'away_team_chanceCreationCrossing', 
+                                'away_team_chanceCreationShooting', 'away_team_defencePressure', 'away_team_defenceAggression', 
+                                'Home_team_wins', 'Away_team_wins', 'Home_team_losses', 'Away_team_losses', 
+                                'Home_team_draws', 'Away_team_draws', 'prev_goals_scored_home', 'prev_goals_conceded_home', 
+                                'prev_goals_scored_away', 'prev_goals_conceded_away', 'winning_ground_away', 
+                                'winning_ground_home', 'winning_ground_draw']]
+#dropping duplicate columns and renaming a few in df_final_y
+df_final_y.drop(['home_win_m_x', 'away_win_m_x', 'draw__m_x'], axis=1, inplace=True)
+df_final_y.rename(columns={'home_win_m_y': 'home_win_m', 'away_win_m_y': 'away_win_m', 'draw__m_y': 'draw__m'}, inplace=True)
+#drop winning ground columns from the df_final_y
+df_final_y.drop(['winning_ground_away', 'winning_ground_home', 'winning_ground_draw'], axis=1, inplace=True)
+df_final_y.drop(['Home_team_draws', 'Away_team_draws'], axis=1, inplace=True)
+# calculate the correlation matrix fro df_final_x
+corr_matrix = df_final_x.corr()
+
+# loop through the correlation matrix and print sentences for correlated columns
+for i in range(len(corr_matrix.columns)):
+    for j in range(i):
+        if abs(corr_matrix.iloc[i, j]) > 0.5:
+            print(f"The column {corr_matrix.columns[i]} is highly correlated with the column {corr_matrix.columns[j]} with a correlation coefficient of {corr_matrix.iloc[i, j]:.2f}.")
+#apply PCA on df_final_x
+
+# import the necessary libraries
+from sklearn.decomposition import PCA
+
+# create a new dataframe with only the x variables
+df_final_x = df_final[['match_year', 'home_team_chanceCreationPassing', 'home_team_chanceCreationCrossing', 
+                                'home_team_chanceCreationShooting', 'home_team_defencePressure', 'home_team_defenceAggression', 
+                                'away_team_chanceCreationPassing', 'away_team_chanceCreationCrossing', 
+                                'away_team_chanceCreationShooting', 'away_team_defencePressure', 'away_team_defenceAggression', 
+                                'Home_team_wins', 'Away_team_wins', 'Home_team_losses', 'Away_team_losses', 
+                                'Home_team_draws', 'Away_team_draws', 'prev_goals_scored_home', 'prev_goals_conceded_home', 
+                                'prev_goals_scored_away', 'prev_goals_conceded_away', 'winning_ground_away', 
+                                'winning_ground_home', 'winning_ground_draw']]
+
+# instantiate the PCA model with all components
+pca = PCA()
+
+# fit the model with the x variables
+pca.fit(df_final_x)
+
+# calculate the cumulative explained variance ratio
+cumulative_var_ratio = np.cumsum(pca.explained_variance_ratio_)
+
+# find the number of components that explain at least 90% of the variance
+n_components = np.argmax(cumulative_var_ratio >= 0.9) + 1
+
+# instantiate the PCA model with the chosen number of components
+pca = PCA(n_components=n_components)
+
+# fit the model with the x variables
+pca.fit(df_final_x)
+
+# transform the x variables using the fitted model
+df_final_x_pca = pd.DataFrame(pca.transform(df_final_x), columns=[f'PCA{i}' for i in range(1, n_components+1)])
+
+# concatenate the transformed x variables with the target variables
+df_final_pca = pd.concat([df_final_x_pca, df_final[['home_win_m', 'away_win_m', 'draw__m']]], axis=1)
+#correlation matrix for df_final_pca
+
+# create a correlation matrix of the transformed x variables
+corr_matrix = df_final_pca.iloc[:, :-3].corr()
+
+# plot the correlation matrix using a heatmap
+plt.figure(figsize=(10, 8))
+sns.heatmap(corr_matrix, cmap='coolwarm', annot=True, fmt='.2f')
+plt.title('Correlation Matrix of Transformed X Variables')
+plt.show()
+import matplotlib.pyplot as plt
+
+# get the loadings of the first principal component
+loadings = pca.components_[1]
+
+# create a bar plot of the loadings
+plt.bar(range(len(loadings)), loadings)
+
+# label the x-axis with the original feature names
+plt.xticks(range(len(loadings)), df_final_x.columns, rotation=90)
+
+# show the plot
+plt.show()
+#Scaling the df_final_pca
+
+from sklearn.preprocessing import StandardScaler
+
+# Initialize the scaler
+scaler = StandardScaler()
+
+# Scale the data
+df_final_scaled = pd.DataFrame(scaler.fit_transform(df_final_pca), columns=df_final_pca.columns)
+
+# View the scaled data
+print(df_final_scaled.head())
+#Attempt 1 -Apply RandomForest on scaled dataset. 
+
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+
+# Split the data into training and testing sets
+X = df_final_scaled.drop(['home_win_m', 'away_win_m', 'draw__m'], axis=1)
+y = df_final_scaled[['home_win_m', 'away_win_m', 'draw__m']]
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
+
+# Fit the Random Forest Regressor to the training data
+rf_regressor = RandomForestRegressor(random_state=42)
+rf_regressor.fit(X_train, y_train)
+
+# Predict the outcomes of the test set
+y_pred = rf_regressor.predict(X_test)
+#Attempt 1 - RandomForestRegressor
+
+from sklearn.metrics import mean_squared_error, r2_score, explained_variance_score
+import numpy as np
+
+# Calculate mean squared error
+mse = mean_squared_error(y_test, y_pred)
+print("Mean Squared Error:", mse)
+
+# Calculate R-squared score
+r2 = r2_score(y_test, y_pred)
+print("R-squared score:", r2)
+
+# Calculate explained variance score
+evs = explained_variance_score(y_test, y_pred)
+print("Explained Variance Score:", evs)
+
+# Calculate Mean Absolute Error
+mae = np.mean(np.abs(y_pred - y_test), axis=0)
+print("Mean Absolute Error:", mae)
+# Get feature importances
+importances = rf_regressor.feature_importances_
+std = np.std([tree.feature_importances_ for tree in rf_regressor.estimators_], axis=0)
+indices = np.argsort(importances)[::-1]
+
+# Print the feature ranking
+print("Feature ranking:")
+
+for f in range(X.shape[1]):
+    print("%d. feature %d (%f)" % (f + 1, indices[f], importances[indices[f]]))
+
+# Plot the feature importances of the forest
+plt.figure()
+plt.title("Feature importances")
+plt.bar(range(X.shape[1]), importances[indices], color="r", yerr=std[indices], align="center")
+plt.xticks(range(X.shape[1]), indices)
+plt.xlim([-1, X.shape[1]])
+plt.show()
+#Validate the model - Attempt 1 (PCA, Scaling and RandomForestRegressor): RandomizedSearchCV
+
+from sklearn.model_selection import RandomizedSearchCV
+from sklearn.ensemble import RandomForestRegressor
+from scipy.stats import randint
+
+# Define the parameter distribution for RandomizedSearchCV
+param_dist = {
+    "n_estimators": randint(100, 1000),
+    "max_depth": [None, 5, 10, 20],
+    "min_samples_split": randint(2, 20),
+    "min_samples_leaf": randint(1, 20),
+    "max_features": ["auto", "sqrt", "log2"]
+}
+
+# Create a RandomizedSearchCV object with the RandomForestRegressor and the parameter distribution
+rf_regressor_cv = RandomizedSearchCV(RandomForestRegressor(random_state=42), param_distributions=param_dist, cv=5, n_jobs=-1, n_iter=50, random_state=42)
+
+# Fit the RandomizedSearchCV object to the training data
+rf_regressor_cv.fit(X_train, y_train)
+
+# Print the best parameters and the best score
+print("Best parameters:", rf_regressor_cv.best_params_)
+print("Best score:", rf_regressor_cv.best_score_)
+#cross validation - Model Attempt 1 evaluation
+from sklearn.model_selection import KFold, cross_val_score
+
+kfold = KFold(n_splits=5, shuffle=True, random_state=42) # define the number of splits and the random state for reproducibility
+
+# Define the model
+model = RandomForestRegressor(n_estimators=500, max_depth=20, min_samples_split=5, min_samples_leaf=2, max_features='sqrt', random_state=42)
+
+# Evaluate the model using cross-validation
+scores = cross_val_score(model, X, y, cv=kfold, scoring='neg_mean_squared_error')
+
+# Print the mean and standard deviation of the cross-validation scores
+print(f"Cross-validated Mean Squared Error: {-scores.mean():.4f}")
+print(f"Cross-validated Standard Deviation: {scores.std():.4f}")
+#Attempt 10 - df_final_y with new parameters of random forest
+
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score, explained_variance_score, mean_absolute_error
+
+# Split the data into training and testing sets
+X = df_final_scaled_y.drop(['home_win_m', 'away_win_m', 'draw__m'], axis=1)
+y = df_final_scaled_y[['home_win_m', 'away_win_m', 'draw__m']]
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
+
+# Define the model
+rf_model = RandomForestRegressor(n_estimators=500, max_depth=20, min_samples_split=5, min_samples_leaf=2, max_features='sqrt', random_state=42)
+
+# Train the model on the entire dataset
+rf_model.fit(X_train, y_train)
+
+# Predict the outcomes of the test set
+y_pred = rf_model.predict(X_test)
+
+# Evaluate the model
+mse = mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+evs = explained_variance_score(y_test, y_pred)
+
+
+print("Mean Squared Error:", mse)
+print("R-squared score:", r2)
+print("Explained Variance Score:", evs)
+
+# Calculate Mean Absolute Error
+mae = np.mean(np.abs(y_pred - y_test), axis=0)
+print("Mean Absolute Error:", mae)
+
+# Get feature importances
+importances = rf_model.feature_importances_
+features = X.columns.tolist()
+
+# Sort feature importances in descending order
+indices = np.argsort(importances)[::-1]
+
+# Rearrange feature names so they match the sorted feature importances
+names = [features[i] for i in indices]
+
+# Print feature importance scores
+print("\nFeature importance scores:")
+for i in range(X.shape[1]):
+    print(names[i], ":", importances[indices[i]])
+
